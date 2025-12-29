@@ -1,0 +1,13 @@
+name: random
+version: 0.1.0
+
+authors:
+  - Paul M. Lambert <plambert@plambert.net>
+
+targets:
+  random:
+    main: src/random.cr
+
+crystal: '>= 1.18.2'
+
+license: MIT

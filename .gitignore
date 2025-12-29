@@ -1,0 +1,10 @@
+/docs/
+/lib/
+/bin/
+/.shards/
+*.dwarf
+
+# Ignore local scratch code
+/t.cr
+/t[0-9]*
+/tt*
