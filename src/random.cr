@@ -7,13 +7,48 @@ require "uri"
 CLI_HELP = <<-HELP
 #{PROGRAM_NAME} - create random data
 
-usage: #{PROGRAM_NAME} [options] [bytes]
+USAGE: #{PROGRAM_NAME} [options] [bytes]
 
-options:
+OPTIONS:
 
   bytes                    Integer number of bytes to output (default: #{Random::CLI::DEFAULT_BYTES})
 
-  --raw                    Output the raw bytes with no newline or other terminator
+  ALGORITHM:
+
+    --secure                Attempt to choose the most secure algorithm; see
+                            (Random::Secure)[https://crystal-lang.org/api/latest/Random/Secure.html]
+                            for details
+
+    --pcg32                 Use the algorithm (Random::PCG32)[https://crystal-lang.org/api/latest/Random/PCG32.html]
+
+    --isaac                 Use the algorithm (Random::ISAAC)[https://crystal-lang.org/api/latest/Random/ISAAC.html]
+
+    --dev-random            Read bytes from `/dev/random`
+
+    --dev-urandom           Read bytes from `/dev/urandom`
+
+    --seed <int>            Set a specific seed, only for the PCG32 algorithm
+
+    --sequence <int>        Set the starting sequence number, only for the PCG32 algorithm
+
+  OUTPUT:
+
+    --base64                 Output the value Base64-encoded; by default, all on a single line, or use `--linefeed`
+                             to add a linefeed after a given number of characters
+
+    --url-base64             Like `--base64` but using URL-safe characters
+
+    --raw                    Output the raw bytes with no newline or other terminator; it is an error to attempt to do this
+                             when STDOUT is connected to a TTY, so you must pipe the output into some other command
+
+    --hex                    Output hex-encoded bytes, using '0'..'9', 'a'..'f'
+    --hex-lower
+
+    --hex-upper              Output hex-encoded bytes, using '0'..'9', 'A'..'F'
+
+    --url-encoded            Output URL-encoded bytes
+
+    --linefeed <column>      Add a linefeed at or after the given column, for base64, hexadecimal, or URL-encoded output
 
 HELP
 
@@ -115,7 +150,7 @@ module Random
           @format = Format::HexUpper
         when "--url-encoded"
           @format = Format::URLEncoded
-        when "--line-feed"
+        when "--linefeed", "--line-feed"
           @linefeed = opts.shift.to_i
         when %r{^0*[1-9]\d*$}
           @bytes = opt.to_u32
@@ -168,28 +203,16 @@ module Random
     end
 
     def run
-      # count = @bytes
-      # bufsize = case format
-      #           when .base64?, .url_base64?
-      #             BASE64_BUFFER_SIZE
-      #           else
-      #             BUFFER_SIZE
-      #           end
-      # while count > bufsize
-      #   write_bytes bufsize
-      #   count -= bufsize
-      # end
       buffer = Bytes.new(@bytes)
       write_bytes buffer
       STDOUT << '\n' if STDOUT.tty? && @format.newline?
     end
 
     def write_bytes(buf)
-      # buf = @buffer[0...count]
       random_bytes(buf)
       case format
       in .base64?
-        io << Base64.encode(buf).gsub('\n', "")
+        io << Base64.strict_encode(buf)
       in .url_base64?
         io << Base64.urlsafe_encode(buf).gsub('\n', "")
       in .raw?
@@ -216,8 +239,10 @@ module Random
       case source
       in .secure?
         Random::Secure.random_bytes(buf)
-      in .isaac?, .pcg32?
-        self.random.random_bytes(buf)
+      in .isaac?
+        Random::ISAAC.new.random_bytes(buf)
+      in .pcg32?
+        Random::PCG32.new.random_bytes(buf)
       in .dev_random?, .dev_urandom?
         self.dev_input.read_fully(buf)
       end
